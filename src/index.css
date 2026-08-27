@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Sistema de diseño · paleta cálida (stone / casi negro)
+   Una sola fuente de verdad: estos tokens se emiten como variables CSS en
+   :root (por eso `@theme static`) y a la vez generan utilidades Tailwind
+   (bg-canvas, text-muted, border-border, ring-ok, …).
+   Se pueden usar desde JSX de dos formas:
+     · clases utilitarias:  className="text-muted border-border"
+     · estilos en línea:    style={{color:"var(--color-muted)"}}
+   Contraste: todos los colores de texto cumplen WCAG AA (>=4.5:1) sobre las
+   superficies con las que se emparejan en la app. Ver comentarios por token.
+   --------------------------------------------------------------------------- */
+@theme static {
+  /* Tipografía: Manrope para texto, JetBrains Mono para cifras tabulares.
+     Ambas se cargan en index.html; las pilas de reserva son reales. */
+  --font-sans: "Manrope", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Superficies */
+  --color-canvas: #F6F5F1;         /* fondo de la app */
+  --color-surface: #FFFFFF;        /* tarjetas */
+  --color-surface-muted: #FAFAF8;  /* tarjeta hundida / hover */
+  --color-surface-sunken: #F3F2EE; /* chips inactivos */
+  --color-surface-inset: #EFEDE7;  /* fondo de controles segmentados */
+  --color-surface-chip: #E9E7E0;   /* fondo de tablist y botones circulares */
+  --color-surface-track: #F0EFEA;  /* riel de barras de progreso */
+
+  /* Líneas */
+  --color-border: #EAE8E2;
+  --color-border-strong: #D8D5CD;
+  --color-divider: #F4F3EE;
+
+  /* Texto */
+  --color-ink: #1A1A1E;       /* texto principal */
+  --color-ink-soft: #3A3A3E;  /* texto secundario */
+  --color-muted: #606067;     /* 5.04:1 sobre #E9E7E0 · 6.24:1 sobre blanco */
+  --color-faint: #6F6C61;     /* 5.03:1 sobre #FAFAF8 · antes #B8B6AE (1.94:1) */
+  --color-neutral-dot: #D4D2CC; /* solo decorativo (puntos, barras sin estado) */
+
+  /* Semánticos (color + superficie emparejada, ratio verificado) */
+  --color-danger: #CD2121;          /* 5.01:1 sobre #FEF2F2 · 5.48:1 sobre blanco */
+  --color-danger-surface: #FEF2F2;
+  --color-warn: #A45A05;            /* 5.01:1 sobre #FFFBEB · 5.19:1 sobre blanco */
+  --color-warn-surface: #FFFBEB;
+  --color-ok: #117C39;              /* 5.06:1 sobre #F0FDF4 · 5.30:1 sobre blanco */
+  --color-ok-surface: #F0FDF4;
+  --color-info: #2563EB;            /* 4.69:1 sobre #EFF4FF */
+  --color-info-surface: #EFF4FF;
+  --color-preprod: #736E68;         /* 5.05:1 sobre blanco · antes #9A9690 (2.94:1) */
+  --color-accent: #7C3AED;          /* violeta de proyecto (barras y cifras) */
+  --color-teal: #0D9488;            /* estado "Proceso de cierre y Reporte" */
+}
+
+:root {
+  color-scheme: light;
+  font-family: var(--font-sans);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--color-canvas);
+}
+
+button {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+/* Texto solo para lectores de pantalla (Tailwind v4 no trae .sr-only). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
