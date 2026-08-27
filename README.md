@@ -14,11 +14,13 @@ Es una aplicación web de una sola página (SPA) construida con **React + Vite**
 - [Configuración del entorno (.env)](#configuración-del-entorno-env)
 - [Scripts disponibles](#scripts-disponibles)
 - [Desarrollo](#desarrollo)
+- [Configuración en Windows (Node.js)](#configuración-en-windows-nodejs)
 - [Build y ejecución en producción](#build-y-ejecución-en-producción)
 - [API](#api)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Arquitectura de la capa de API](#arquitectura-de-la-capa-de-api)
 - [Tests](#tests)
+- [Solución de problemas](#solución-de-problemas)
 - [Integración continua (CI)](#integración-continua-ci)
 
 ---
@@ -56,7 +58,9 @@ Luego copia el archivo de ejemplo de variables de entorno y rellénalo:
 cp .env.example .env
 ```
 
-> ⚠️ **Nunca** hagas commit de `.env`. Solo `.env.example` se versiona.
+> ⚠️ El archivo **debe llamarse exactamente `.env`** (con el punto inicial). Un archivo llamado `env` **no será leído** ni por Vite (`loadEnv`) ni por el servidor de producción (`server/env.js`), y la API responderá `500` como si faltaran las credenciales.
+>
+> ⚠️ **Nunca** hagas commit de `.env`. Solo `.env.example` se versiona (`.env` está en `.gitignore`).
 
 ---
 
@@ -117,6 +121,38 @@ npm run dev
 En desarrollo, `vite.config.js` monta un plugin (`notion-tasks-api`) que expone `/api/tasks` a través de **exactamente la misma capa de API** que usa producción (`server/api.js` → `server/notion.js`). No hay lógica de rutas duplicada: el front-end habla con `/api/tasks` igual en dev y en prod.
 
 El punto de entrada del front-end es `index.html` → `src/main.jsx`, que renderiza el componente `src/carga-responsables.jsx`.
+
+---
+
+## Configuración en Windows (Node.js)
+
+Si Node.js no está instalado, puedes instalarlo **sin permisos de administrador** con `winget` (a nivel de usuario):
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS -e --scope user
+```
+
+Después **reinicia la terminal** para que el `PATH` se actualice y verifica:
+
+```powershell
+node -v
+npm -v
+```
+
+### Wrapper del dev server (`.claude/dev.cmd`)
+
+El proyecto incluye [`.claude/launch.json`](.claude/launch.json) para arrancar el servidor de desarrollo desde herramientas integradas. En instalaciones de Node **por usuario** (p. ej. vía `winget`), el proceso que lanza el server puede no tener Node en su `PATH`, y `npm` fallaría al invocar `node`.
+
+Para evitarlo, `launch.json` apunta a un pequeño wrapper, [`.claude/dev.cmd`](.claude/dev.cmd), que antepone el directorio de Node al `PATH` y luego ejecuta `npm run dev`:
+
+```bat
+@echo off
+set "PATH=<ruta-a-node>;%PATH%"
+cd /d "%~dp0.."
+call npm run dev -- --port 5173 --strictPort
+```
+
+> Si mueves o reinstalas Node, actualiza la ruta dentro de `.claude/dev.cmd` (y, si cambia el puerto, en `.claude/launch.json`). Ejecutar `npm run dev` a mano desde una terminal con Node en el `PATH` no necesita este wrapper.
 
 ---
 
@@ -216,6 +252,19 @@ npm test
 - `vitest.config.js` se mantiene aparte de `vite.config.js` a propósito: el test no necesita el middleware de Notion ni `loadEnv()`.
 
 Tests presentes: `server/api.test.js`, `server/config.test.js`, `server/notion.test.js`.
+
+---
+
+## Solución de problemas
+
+| Síntoma | Causa probable | Solución |
+| --- | --- | --- |
+| `Command not found: npm` / `"node" no se reconoce…` al arrancar | Node.js no está instalado, o no está en el `PATH` del proceso que lanza el server. | Instala Node (ver [Configuración en Windows](#configuración-en-windows-nodejs)) y reinicia la terminal. Para herramientas integradas, usa el wrapper `.claude/dev.cmd`. |
+| La API responde `500 { "error": "NOTION_TOKEN o NOTION_TAREAS_DATABASE_ID no configurados en .env" }` | Falta el archivo `.env`, está mal nombrado (`env` en vez de `.env`), o esas dos variables están vacías. | Asegúrate de que el archivo se llame exactamente **`.env`** y que `NOTION_TOKEN` y `NOTION_TAREAS_DATABASE_ID` tengan valor. **Reinicia** el server tras editar `.env`. |
+| Cambié `.env` pero la app sigue igual | El entorno se lee **una sola vez al arrancar** (`loadEnv` en dev, `server/env.js` en prod). | Reinicia el servidor de desarrollo o el proceso de producción. |
+| La API responde `502` | Error aguas arriba de Notion: token inválido, o el token no tiene compartida la base de datos consultada. | Verifica el token y **comparte** las bases (Tareas/Proyectos/Snapshots) con la integración en Notion. |
+| El Dashboard muestra `0 de 0 proyectos con dato` | La base de *Snapshots Semanales de Despliegue* no tiene registros para esa semana, o `NOTION_PROYECTOS_DATABASE_ID` / `NOTION_SNAPSHOTS_DATABASE_ID` apuntan a bases que el token no ve. | Confirma los IDs de esas bases y que estén compartidas con la integración. Recuerda que proyectos y snapshots degradan a vacío si Notion falla (solo las tareas son obligatorias para un `200`). |
+| `dist/ no encontrado` al hacer `npm start` | No se generó el build. | Ejecuta `npm run build` antes de `npm start`. |
 
 ---
 
