@@ -893,7 +893,7 @@ export default function Panel(){
             {cell&&selCell.length>0&&(
               <div className="mt-2.5 rounded-2xl bg-white border border-border px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
                 <h3 className="text-[13.5px] font-semibold text-ink-soft">{cell.n} · {cell.k==="venc"?"Vencidas":cell.k==="sinfecha"?"Sin fecha":lbl(cell.k)}</h3>
-                <div className="mt-1 divide-y divide-divider">{[...selCell].sort((a,b)=>(a.v||"9999")<(b.v||"9999")?-1:1).map((t)=><TaskItem key={t.id} t={t} onStatus={updateStatus}/>)}</div>
+                <div className="mt-1 divide-y divide-divider">{[...selCell].sort((a,b)=>(a.v||"9999")<(b.v||"9999")?-1:1).map((t)=><TaskItem key={t.id} t={t} onStatus={updateStatus} showProject/>)}</div>
               </div>
             )}
             <p className="mt-3 text-[13px] leading-relaxed text-muted">Usa el selector "Mostrar en cada celda" para alternar entre suma de esfuerzo (peso) y número de tareas. El anillo verde marca el primer día con margen de cada persona. Esfuerzo faltante contado como 2.</p>
