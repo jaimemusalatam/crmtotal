@@ -129,6 +129,49 @@ export async function fetchActiveTaskPages(token, tasksDbId) {
   return acc;
 }
 
+/** Base "Base de Tickets - Musa" - trae TODOS los tickets; el Estado se filtra en el cliente. */
+export async function fetchTickets(token, ticketsDbId) {
+  const acc = [];
+  let cursor;
+  do {
+    const res = await notionFetch(`https://api.notion.com/v1/databases/${ticketsDbId}/query`, token, {
+      method: 'POST',
+      body: JSON.stringify({ start_cursor: cursor, page_size: 100 }),
+    });
+    const json = await res.json();
+    acc.push(...(json.results || []));
+    cursor = json.has_more ? json.next_cursor : undefined;
+  } while (cursor);
+  return acc;
+}
+
+/** Mapea una pagina de la base de Tickets al shape compacto que consume el frontend. */
+export function mapTicketPage(page, idx, projectNameById = {}) {
+  const props = page.properties || {};
+  const people = (name) => (props[name]?.people || []).map((p) => p.name?.trim()).filter(Boolean);
+  const proyId = props['\u{1F680} Proyectos y Cursos']?.relation?.[0]?.id || null;
+  return {
+    id: idx,
+    pageId: page.id,
+    t: props['Detalle del incidente']?.title?.[0]?.plain_text || `ticket-${idx}`,
+    // "Estado" es una formula de Notion que devuelve "Abierto" | "Cerrado".
+    estado: props['Estado']?.formula?.string || null,
+    crit: props['Nivel de criticidad']?.select?.name || null,
+    cat: props['Categoría']?.select?.name || null,
+    tipo: props['Tipo de incidencia']?.select?.name || null,
+    canal: props['Canal de origen']?.select?.name || null,
+    reportado: props['Reportado']?.select?.name || null,
+    rtech: people('Responsable Tech de atención'),
+    rcrea: people('Responsable de crear el ticket'),
+    creado: props['Fecha de creación']?.created_time || null,
+    apertura: props['Fecha/hora apertura real del ticket']?.date?.start || null,
+    cierre: props['Día de cierre']?.date?.start || null,
+    sla: props['Indicador de SLA']?.formula?.string || null,
+    slaFinal: props['Indicador de SLA-final']?.formula?.string || null,
+    p: proyId ? (projectNameById[proyId] || null) : null,
+  };
+}
+
 /** Mapea una pagina de Notion al shape compacto que consume el frontend. */
 export function mapTaskPage(page, idx, projectsById) {
   const props = page.properties || {};
@@ -161,14 +204,16 @@ export function mapTaskPage(page, idx, projectsById) {
 }
 
 /**
- * Payload de `GET /api/tasks` -> `{ tasks, projects }`.
- * Proyectos y snapshots degradan a vacio si Notion falla (resiliencia original).
+ * Payload de `GET /api/tasks` -> `{ tasks, projects, tickets }`.
+ * Proyectos, snapshots y tickets degradan a vacio si Notion falla (resiliencia original).
+ * Los tickets solo se consultan si `ticketsDbId` esta configurado.
  */
-export async function getTasksPayload({ token, tasksDbId, projectsDbId, snapshotsDbId }) {
-  const [pages, projects, weeklySnapshots] = await Promise.all([
+export async function getTasksPayload({ token, tasksDbId, projectsDbId, snapshotsDbId, ticketsDbId }) {
+  const [pages, projects, weeklySnapshots, ticketPages] = await Promise.all([
     fetchActiveTaskPages(token, tasksDbId),
     fetchProjects(token, projectsDbId).catch(() => ({ byId: {}, list: [] })),
     fetchWeeklySnapshots(token, snapshotsDbId).catch(() => ({})),
+    ticketsDbId ? fetchTickets(token, ticketsDbId).catch(() => []) : Promise.resolve([]),
   ]);
 
   for (const project of projects.list) {
@@ -176,7 +221,12 @@ export async function getTasksPayload({ token, tasksDbId, projectsDbId, snapshot
   }
 
   const tasks = pages.map((page, idx) => mapTaskPage(page, idx, projects.byId));
-  return { tasks, projects: projects.list };
+
+  const projectNameById = {};
+  for (const project of projects.list) projectNameById[project.id] = project.name;
+  const tickets = ticketPages.map((page, idx) => mapTicketPage(page, idx, projectNameById));
+
+  return { tasks, projects: projects.list, tickets };
 }
 
 /** Payload de `POST /api/tasks/status` -> `{ ok: true }`. */

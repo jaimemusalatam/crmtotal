@@ -118,7 +118,7 @@ describe('handleTasksApi: GET / (tasks payload)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('returns 200 with the { tasks, projects } payload on success', async () => {
+  it('returns 200 with the { tasks, projects, tickets } payload on success', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ results: [], has_more: false }),
@@ -133,7 +133,8 @@ describe('handleTasksApi: GET / (tasks payload)', () => {
     });
     expect(res.status).toBe(200);
     const body = JSON.parse(res.body);
-    expect(body).toEqual({ tasks: [], projects: [] });
+    // ticketsDbId no está en COMPLETE_CONFIG, así que la base de tickets no se consulta -> [].
+    expect(body).toEqual({ tasks: [], projects: [], tickets: [] });
     expect(fetchMock).toHaveBeenCalled();
   });
 

@@ -99,7 +99,10 @@ function respColor(name){
 const BITACORA_EXCLUYE=["Jaime","Hamilin","Aixa"];
 const P_SORTS={total:{label:"Tareas",get:(p)=>p.total},vencidas:{label:"Vencidas",get:(p)=>p.vencidas},curso:{label:"En curso",get:(p)=>p.curso}};
 const PRESETS=[["todas","Todas"],["vencidas","Vencidas"],["p7","7 días"],["p30","30 días"],["sinfecha","Sin fecha"]];
-const TABS=[["dashboard","Dashboard"],["responsable","Responsable"],["proyecto","Proyecto"],["semana","Semana"],["gantt","Gantt"],["bitacora","Bitácora"]];
+const TABS=[["dashboard","Dashboard"],["responsable","Responsable"],["proyecto","Proyecto"],["semana","Semana"],["gantt","Gantt"],["bitacora","Bitácora"],["tickets","Tickets"]];
+// Base de Tickets - Musa: niveles de criticidad (orden por severidad) y sus colores.
+const TICKET_CRITS=["4. Crítico","1 - Alto","2- Medio","3 - Bajo"];
+const CRIT_COLOR={"4. Crítico":"#DC2626","1 - Alto":"#EA580C","2- Medio":"#CA8A04","3 - Bajo":"#65A30D"};
 // Estado Macro real del proyecto (Notion, base "🚀 Proyectos y Cursos").
 const ESTADO_MACRO_ORDER=["Pre-Producción","En Desarrollo","En Revisión/QA","En despliegue","Proceso de cierre y Reporte","Cerrado","Stand By"];
 const GANTT_ESTADOS_SEL=[...ESTADO_MACRO_ORDER.map((e)=>[e,e]),["__sin","Sin estado"]];
@@ -158,6 +161,26 @@ function TaskItem({t,onStatus,showProject}){
   );
 }
 
+function TicketItem({k}){
+  const abierto=k.estado==="Abierto";
+  return (
+    <div className="py-2.5">
+      <div className="flex items-start gap-2">
+        <span className={"mt-0.5 shrink-0 px-2 py-0.5 rounded-full text-[12px] font-semibold "+(abierto?"bg-[#FEE2E2] text-[#991B1B]":"bg-[#DCFCE7] text-[#166534]")}>{k.estado||"—"}</span>
+        <span className="text-[14px] leading-snug text-ink-soft flex-1">{k.t}</span>
+        {k.crit&&<span className="shrink-0 text-[12px] font-semibold whitespace-nowrap" style={{color:CRIT_COLOR[k.crit]||"var(--color-muted)"}}>{k.crit}</span>}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12.5px] text-muted pl-1">
+        {k.p&&<span className="truncate max-w-full">🚀 {k.p}</span>}
+        {k.cat&&<span>{k.cat}</span>}
+        {k.rtech.length>0&&<span>Tech: {k.rtech.join(", ")}</span>}
+        {k.apertura&&<span className="font-mono tabular-nums">Abre {fdate(k.apertura)}{k.cierre?" · cierra "+fdate(k.cierre):""}</span>}
+        {k.sla&&<span>{k.sla}</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function Panel(){
   const [data,setData]=useState(TASKS0);
   const [refreshing,setRefreshing]=useState(false);
@@ -179,8 +202,22 @@ export default function Panel(){
   const [cell,setCell]=useState(null);
   const [ganttProj,setGanttProj]=useState("__all__");
   const [allProjects,setAllProjects]=useState([]);
+  const [tickets,setTickets]=useState([]);
+  const [ticketEstado,setTicketEstado]=useState("Abierto"); // filtro por defecto: abiertos
+  const [ticketCrit,setTicketCrit]=useState("todas");
+  const [ticketQuery,setTicketQuery]=useState("");
   const usingRange=from||to;
   const filterActive=!!(usingRange||preset!=="todas");
+
+  const ticketsAbiertos=useMemo(()=>tickets.filter((k)=>k.estado==="Abierto").length,[tickets]);
+  const ticketsFiltrados=useMemo(()=>{
+    const q=ticketQuery.trim().toLowerCase();
+    return tickets
+      .filter((k)=>(ticketEstado==="todas"||k.estado===ticketEstado)
+        &&(ticketCrit==="todas"||k.crit===ticketCrit)
+        &&(!q||(k.t||"").toLowerCase().includes(q)||(k.p||"").toLowerCase().includes(q)||(k.cat||"").toLowerCase().includes(q)))
+      .sort((a,b)=>{const av=a.apertura||"",bv=b.apertura||"";return av<bv?1:av>bv?-1:0;}); // más recientes primero
+  },[tickets,ticketEstado,ticketCrit,ticketQuery]);
 
   async function refresh(){
     if(refreshing) return;
@@ -223,6 +260,17 @@ export default function Panel(){
             logroAprendizaje:typeof s.logroAprendizaje==="number"?s.logroAprendizaje:null,
             notifSemana:typeof s.notifSemana==="number"?s.notifSemana:null,
           })):[],
+        })));
+      }
+      if(Array.isArray(body.tickets)){
+        setTickets(body.tickets.map((k,i)=>({
+          id:i, pageId:k.pageId||null, t:k.t||"", estado:k.estado||null, crit:k.crit||null,
+          cat:k.cat||null, tipo:k.tipo||null, canal:k.canal||null, reportado:k.reportado||null,
+          rtech:Array.isArray(k.rtech)?k.rtech:[], rcrea:Array.isArray(k.rcrea)?k.rcrea:[],
+          creado:k.creado||null,
+          apertura:k.apertura?String(k.apertura).slice(0,10):null,
+          cierre:k.cierre?String(k.cierre).slice(0,10):null,
+          sla:k.sla||null, slaFinal:k.slaFinal||null, p:k.p||null,
         })));
       }
       const d=new Date();
@@ -1140,10 +1188,57 @@ export default function Panel(){
         )}
 
 
+        {tab==="tickets"&&(
+          <div role="tabpanel" id="panel-tickets" aria-labelledby="tab-tickets">
+            <h2 className="sr-only">Tickets de soporte (Base de Tickets - Musa)</h2>
+            <div className="mt-3 rounded-2xl bg-white border border-border px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.03)] space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[13.5px] text-muted">Estado</span>
+                {[["Abierto","Abierto"],["Cerrado","Cerrado"],["todas","Todos"]].map(([k,l])=>(
+                  <button key={k} onClick={()=>setTicketEstado(k)} aria-pressed={ticketEstado===k}
+                    className={"px-2.5 py-1 rounded-full text-[13.5px] font-medium "+(ticketEstado===k?"bg-ink text-white":"bg-white text-muted border border-border")}>
+                    {l}{k==="Abierto"&&ticketsAbiertos>0?" ("+ticketsAbiertos+")":""}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[13.5px] text-muted self-center mr-0.5">Criticidad</span>
+                <button onClick={()=>setTicketCrit("todas")} aria-pressed={ticketCrit==="todas"}
+                  className={"px-2.5 py-1 rounded-full text-[13.5px] font-medium "+(ticketCrit==="todas"?"bg-ink text-white":"bg-white text-muted border border-border")}>Todas</button>
+                {TICKET_CRITS.map((c)=>(
+                  <button key={c} onClick={()=>setTicketCrit(c)} aria-pressed={ticketCrit===c}
+                    className={"inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[13.5px] font-medium "+(ticketCrit===c?"bg-ink text-white":"bg-white text-muted border border-border")}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{background:CRIT_COLOR[c]}} />{c}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="absolute left-2.5 top-1/2 -translate-y-1/2">
+                  <circle cx="11" cy="11" r="7" stroke="var(--color-muted)" strokeWidth="2"/><path d="M20 20l-4-4" stroke="var(--color-muted)" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <input value={ticketQuery} onChange={(e)=>setTicketQuery(e.target.value)} type="search"
+                  placeholder="Buscar por detalle, proyecto o categoría…" aria-label="Buscar en tickets"
+                  className="w-full rounded-xl border border-border bg-surface-muted pl-8 pr-8 py-2 text-[14px] text-ink placeholder:text-muted focus:bg-white"/>
+                {ticketQuery&&(
+                  <button onClick={()=>setTicketQuery("")} aria-label="Limpiar búsqueda"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-surface-chip text-ink-soft text-[13.5px] font-bold leading-none hover:bg-[#DFDCD4]">×</button>
+                )}
+              </div>
+            </div>
+            <p className="mt-2.5 text-[13.5px] text-muted">{ticketsFiltrados.length} ticket{ticketsFiltrados.length===1?"":"s"} · fuente: base «Base de Tickets - Musa» en Notion.</p>
+            <div className="mt-1.5 rounded-2xl bg-white border border-border px-4 py-1 shadow-[0_1px_2px_rgba(0,0,0,0.03)] divide-y divide-divider">
+              {ticketsFiltrados.map((k)=><TicketItem key={k.pageId||k.id} k={k}/>)}
+              {ticketsFiltrados.length===0&&<p className="text-[14px] text-muted py-8 text-center">{tickets.length?"Sin tickets en este filtro.":"Sin tickets cargados. Toca «Actualizar datos desde Notion»."}</p>}
+            </div>
+          </div>
+        )}
+
+        {tab!=="tickets"&&(
         <p className="mt-4 text-[13px] leading-relaxed text-muted">
           Excluidos: Operaciones Musa, Diego Herrera, Jorge Fernández y Mónica Ramos. Una tarea con varios responsables cuenta para cada uno.
           Bandas (N.º de tareas): Disponible ≤3 · Moderado 4–7 · Cargado 8–13 · Saturado ≥14. Hamilin concentra la bandeja de coordinación.
         </p>
+        )}
       </div>
     </div>
   );

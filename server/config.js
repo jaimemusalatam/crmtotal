@@ -24,6 +24,9 @@ export function resolveConfig(env = {}) {
     tasksDbId: env.NOTION_TAREAS_DATABASE_ID,
     projectsDbId: env.NOTION_PROYECTOS_DATABASE_ID || DEFAULT_PROJECTS_DB_ID,
     snapshotsDbId: env.NOTION_SNAPSHOTS_DATABASE_ID || DEFAULT_SNAPSHOTS_DB_ID,
+    // Opcional: sin fallback. Si no está seteada, la base de tickets no se consulta
+    // y el payload devuelve `tickets: []` (la pestaña Tickets sale vacía).
+    ticketsDbId: env.NOTION_TICKETS_DATABASE_ID,
   };
 }
 
