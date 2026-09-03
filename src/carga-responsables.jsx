@@ -1419,7 +1419,13 @@ function BitacoraBox({box,query,collapsed,onToggle,onStatus}){
         <div className="border-t border-[#F0EEE8] px-3 pb-3 pt-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-[13px] text-muted font-mono">{lbl(scale.minD)} → {lbl(scale.maxD)}</p>
-            <div className="inline-flex items-center gap-1.5">
+            <div className="inline-flex flex-wrap items-center gap-1.5">
+              {cursor&&(
+                <span className="inline-flex items-center gap-1 px-2 min-h-[24px] rounded-full bg-surface-sunken text-[13px] font-mono font-bold text-ink"
+                  title={"Peso total activo de "+box.name+" el "+lbl(cursor.date)}>
+                  {lbl(cursor.date)} · peso total {pesoActivoEnDia(box.tasksAll,cursor.date)}
+                </span>
+              )}
               <label className="text-[13px] text-muted" htmlFor={"day-"+box.key}>Día</label>
               <input id={"day-"+box.key} type="date" min={scale.minD} max={scale.maxD}
                 value={cursor?cursor.date:""} onChange={(e)=>setCursor(e.target.value?{date:e.target.value}:null)}
